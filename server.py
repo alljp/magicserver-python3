@@ -27,16 +27,27 @@ CONTENT_TYPE = {
 
 MIDDLEWARES = []
 
+ALLOWED_SOURCES = []
+
+
 def add_route(method, path, func):
     """ADD ROUTES
     Build ROUTES
     """
     ROUTES[method][path] = func
 
+
 def add_middleware(func):
     """ADD middlewares
     """
     MIDDLEWARES.append(func)
+
+
+def add_allowed_source(source):
+    """ADD allowed sources
+    """
+    ALLOWED_SOURCES.append(source)
+
 
 # Server Functions
 async def worker(data):
@@ -151,11 +162,21 @@ def parse_fields(body):
 async def request_handler(request):
     """Request Handler"""
     response = {}
+    if 'Origin' in request['header']:
+        response = cors_handler(request, response)
     if MIDDLEWARES:
         for middleware in MIDDLEWARES:
             if middleware.PRE:
                 request, response = middleware(request, response)
     return method_handler(request, response)
+
+
+def cors_handler(request, response):
+    origin = request['header']['Origin']
+    if origin in ALLOWED_SOURCES:
+        response['Access-Control-Allow-Origin'] = origin
+        response['Access-Control-Allow-Credentials'] = "true"
+    return response
 
 
 def method_handler(request, response):
@@ -256,12 +277,14 @@ def ok_200_handler(request, response):
     res = response_handler(request, response)
     return res
 
+
 def redirect(request, response, tmp_uri):
     """HTTP 302 handler"""
     response["status"] = "HTTP/1.1 302 Found"
     response["location"] = tmp_uri
     res = response_handler(request, response)
     return res
+
 
 def response_handler(request, response):
     """HTTP response Handler"""
