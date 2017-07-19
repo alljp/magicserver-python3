@@ -174,7 +174,7 @@ async def request_handler(request):
 def cors_handler(request, response):
     origin = request['header']['Origin']
     if origin in ALLOWED_SOURCES:
-        response['Access-Control-Allow-Origin'] = origin
+        response["Access-Control-Allow-Origin"] = origin
         response['Access-Control-Allow-Credentials'] = "true"
     return response
 
@@ -188,7 +188,8 @@ def method_handler(request, response):
         "POST": post_handler,
         "HEAD": head_handler,
         "DELETE": delete_handler,
-        "PUT": put_handler
+        "PUT": put_handler,
+        "OPTIONS": options_handler
     }
     handler = METHOD[request["method"]]
     return handler(request, response)
@@ -210,7 +211,7 @@ def post_handler(request, response):
             request = form_parser(request)
             request["content"] = multipart_parser(request)
         elif "json" in content_type:
-            request["content"] = json.loads(request["body"])
+            request["content"] = json.loads(request["body"].decode())
         else:
             request["content"] = parse_fields(request["body"])
         return ROUTES["post"][request["path"]](request, response)
@@ -221,9 +222,12 @@ def post_handler(request, response):
 def put_handler(request, response):
     """HTTP PUT Handler"""
     try:
-        if "multipart" in request["header"]["Content-Type"]:
+        content_type = request["header"]["Content-Type"]
+        if "multipart" in content_type:
             request = form_parser(request)
             request["content"] = multipart_parser(request)
+        elif "json" in content_type:
+            request["content"] = json.loads(request["body"].decode())
         else:
             request["content"] = parse_fields(request["body"])
         return ROUTES["put"][request["path"]](request, response)
@@ -237,6 +241,15 @@ def delete_handler(request, response):
         return ROUTES["delete"][request["path"]](request, response)
     except KeyError:
         return err_404_handler(request, response)
+
+
+def options_handler(request, response):
+    """HTTP OPTIONS Handler"""
+    response['Access-Control-Allow-Methods'] = 'GET, POST, PUT'
+    response[
+        'Access-Control-Allow-Headers'] = request['header']['Access-Control-Request-Headers']
+    response['content'] = ""
+    return ok_200_handler(request, response)
 
 
 def head_handler(request, response):
